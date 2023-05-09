@@ -1,0 +1,14 @@
+# Personal directories
+Applications
+Images/*
+!Images/datasets_scheme.png
+Info
+Old Reports
+Other
+Presentation
+Reports
+Sources
+
+# Another directories and files
+.ipynb_checkpoints
+~WRL1783.tmp
