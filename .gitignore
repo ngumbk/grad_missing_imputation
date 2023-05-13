@@ -13,3 +13,5 @@ Sources
 .ipynb_checkpoints
 ~WRL1783.tmp
 Research\ Notebooks/catboost_info
+Program/Data_research.py
+__pycache__/
