@@ -22,6 +22,7 @@ def main():
     with st.expander('Описание переменных'):
         st.markdown(read_markdown_file("markdowns/var_description_table.md"))
         st.markdown('### Таблица корреляций')
+        st.write('В таблице приведены коэффициенты корреляций, посчитанные для всех пар переменных.')
         fig, ax = plt.subplots()
         sns.heatmap(cchd_data.corr(), ax=ax, annot=True, annot_kws={'fontsize': 5})
         st.write(fig)
@@ -121,6 +122,8 @@ def main():
 
         # 6. Создание матриц метрик
         st.markdown('## Расчет метрик')
+        st.write('Для сравнения качества восстановления, выбраны F1-метрика и RMSE-метрика для категориальных и '
+                 'численных переменных, соответственно.')
         num_methods_map = {0: 'Median Imputation', 1: 'Linear Regression', 2: 'Boosted Decision Tree'}
         cat_methods_map = {0: 'Mode Imputation', 1: 'K-Nearest Neighbours', 2: 'Boosted Decision Tree'}
 
@@ -192,32 +195,32 @@ def main():
 
         # Вывод матриц метрик, усредненных по разным количествам пропусков
         with st.expander('Матрицы метрик'):
-            st.markdown('### MCAR категориальные метрики')
+            st.markdown('### F1-метрика восстановления кат. MCAR пропусков')
             fig, ax = plt.subplots()
             sns.heatmap((metrics_MCAR5_cat + metrics_MCAR15_cat + metrics_MCAR25_cat) / 3, ax=ax, annot=True)
             st.write(fig)
 
-            st.markdown('### MAR категориальные метрики')
+            st.markdown('### F1-метрика восстановления кат. MAR пропусков')
             fig, ax = plt.subplots()
             sns.heatmap((metrics_MAR5_cat + metrics_MAR15_cat + metrics_MAR25_cat) / 3, ax=ax, annot=True)
             st.write(fig)
 
-            st.markdown('### MNAR категориальные метрики')
+            st.markdown('### F1-метрика восстановления кат. MNAR пропусков')
             fig, ax = plt.subplots()
             sns.heatmap((metrics_MNAR5_cat + metrics_MNAR15_cat + metrics_MNAR25_cat) / 3, ax=ax, annot=True)
             st.write(fig)
 
-            st.markdown('### MCAR численные метрики')
+            st.markdown('### RMSE-метрика восстановления числ. MCAR пропусков')
             fig, ax = plt.subplots()
             sns.heatmap((metrics_MCAR5_num + metrics_MCAR15_num + metrics_MCAR25_num) / 3, ax=ax, annot=True)
             st.write(fig)
 
-            st.markdown('### MAR численные метрики')
+            st.markdown('### RMSE-метрика восстановления числ. MAR пропусков')
             fig, ax = plt.subplots()
             sns.heatmap((metrics_MAR5_num + metrics_MAR15_num + metrics_MAR25_num) / 3, ax=ax, annot=True)
             st.write(fig)
 
-            st.markdown('### MNAR численные метрики')
+            st.markdown('### RMSE-метрика восстановления числ. MNAR пропусков')
             fig, ax = plt.subplots()
             sns.heatmap((metrics_MNAR5_num + metrics_MNAR15_num + metrics_MNAR25_num) / 3, ax=ax, annot=True)
             st.write(fig)
