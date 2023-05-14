@@ -17,6 +17,7 @@ def impute_average(dataset, column, mode='median', verbose=True):
     '''
     dataset = dataset.copy()
     dataset_col = dataset.loc[:, column]
+    imputed_value = 0
     if mode == 'median':
         imputed_value = dataset_col.median()
     elif mode == 'mean':
@@ -124,7 +125,7 @@ def impute_knn(dataset, column, verbose=True):
     return dataset
 
 
-def impute_catboost_cat(dataset, column, var_map, catboost_params={}, verbose=100):
+def impute_catboost_cat(dataset, column, var_map, catboost_params=None, verbose=100):
     '''
     dataset - исходный набор данных в виде pandas dataframe
     column - столбец, подлежащий восстановлению
@@ -133,6 +134,8 @@ def impute_catboost_cat(dataset, column, var_map, catboost_params={}, verbose=10
     verbose=100 - флаг вывода, если True - то функция будет выводить сообщения на экран
     '''
 
+    if catboost_params is None:
+        catboost_params = {}
     dataset = dataset.copy()
     mask_notnull = dataset[column].notnull()
     full_data = dataset.loc[mask_notnull == True, :]  # берем только те строки, в которых в column нет пропуска
@@ -189,7 +192,7 @@ def impute_catboost_cat(dataset, column, var_map, catboost_params={}, verbose=10
     return dataset
 
 
-def impute_catboost_num(dataset, column, catboost_params={}, verbose=100):
+def impute_catboost_num(dataset, column, catboost_params=None, verbose=100):
     '''
     dataset - исходный набор данных в виде pandas dataframe
     column - столбец, подлежащий восстановлению
@@ -198,6 +201,8 @@ def impute_catboost_num(dataset, column, catboost_params={}, verbose=100):
     verbose=100 - флаг вывода, если True - то функция будет выводить сообщения на экран
     '''
 
+    if catboost_params is None:
+        catboost_params = {}
     dataset = dataset.copy()
     mask_notnull = dataset[column].notnull()
     full_data = dataset.loc[mask_notnull == True, :]  # берем только те строки, в которых в column нет пропуска

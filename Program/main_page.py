@@ -1,28 +1,44 @@
-import markdown
-import numpy as np
-import pandas as pd
-import streamlit as st
 import matplotlib.pyplot as plt
 import seaborn as sns
 from make_misses import *
-from imputation_functions import *
 from impute_set_function import *
 from make_metrics_functions import *
+from Util_functions import *
 
 
 def main():
     # Программа работает ТОЛЬКО с датасетом CCHD
-    cchd_data = pd.read_csv('../../ВКР/Datasets/processed_cleveland.csv')
-    cchd_data.head(6)
+    # 1. Чтение и вывод датасета
+    st.markdown('# Демонстрация работы программы для датасета *Cleveland Clinic Heart Disease Dataset*')
 
-    print(len(cchd_data.loc[cchd_data['ca'] == '?', 'ca']), len(cchd_data.loc[cchd_data['thal'] == '?', 'thal']),
-          sep='\n')
+    cchd_data = pd.read_csv('../../ВКР/Datasets/processed_cleveland.csv')
+    cchd_data.index.name = 'id'
+
     cchd_data.loc[cchd_data['ca'] == '?', 'ca'] = cchd_data['ca'].mode().iloc[0]
     cchd_data.loc[cchd_data['thal'] == '?', 'thal'] = cchd_data['thal'].mode().iloc[0]
     cchd_data = cchd_data.astype({'ca': 'int64', 'thal': 'int64'})
-    print(cchd_data.shape)
 
-    # 1.3
+    st.markdown('## Описание переменных датасета')
+    with st.expander('Описание переменных'):
+        st.markdown(read_markdown_file("markdowns/var_description_table.md"))
+        st.markdown('### Таблица корреляций')
+        fig, ax = plt.subplots()
+        sns.heatmap(cchd_data.corr(), ax=ax, annot=True, annot_kws={'fontsize': 5})
+        st.write(fig)
+
+    st.markdown('## Чтение и обзор датасета')
+    with st.expander('Часть объектов датасета'):
+        st.write('Выведем первые 10 объектов датасета:')
+        st.dataframe(cchd_data.head(10))
+
+    # Изменения в датасете
+    st.markdown('## Описание изменений в датасете')
+    st.markdown(read_markdown_file("markdowns/dataset_changes_description.md"))
+    with st.expander('Таблица с описанием изменений'):
+        st.markdown(read_markdown_file("markdowns/dataset_var_changes_table.md"))
+
+    st.markdown('## Измененный датасет')
+
     cchd_data['cp'] = cchd_data['cp'].replace({2: 1, 3: 2, 4: 3})
     cchd_data['restecg'] = cchd_data['restecg'].replace({2: 1})
     cchd_data = cchd_data.drop(columns=['fbs'])
@@ -30,6 +46,10 @@ def main():
     cchd_data['ca'] = cchd_data['ca'].replace({3: 2})
     cchd_data['thal'] = cchd_data['thal'].replace({7: 1, 6: 1, 3: 0})
     cchd_data['num'] = cchd_data['num'].replace({4: 3})
+
+    with st.expander('Измененный датасет'):
+        st.write('Первые 10 объектов измененного датасета:')
+        st.dataframe(cchd_data.head(10))
 
     cchd_var_map = {'age': 'num',
                     'sex': 'bin',
@@ -45,155 +65,162 @@ def main():
                     'thal': 'bin',
                     'num': 'cat'}
 
-    # 2
-    # Проверка
-    print(make_mcar(cchd_data, area='All', miss_percent=25))
-    print(make_mar(cchd_data, area='sex', area_dependent='oldpeak', miss_parameter=30))
-    print(make_mnar(cchd_data, area='oldpeak', ascending=False, miss_parameter=49))
+    # 2. Демонстрация появления пропусков
+    st.markdown('## Датасеты с пропусками')
+    st.markdown('Приведенные ниже датасеты демонстрируют работу функций создания пропусков с учетом разных механизмов '
+                'появления пропусков.')
 
-    # 2.4
-    # Проверка
-    test_set = make_set_of_datasets(cchd_data, 'MCAR', 'cchd_data', miss_parameters=[5, 15, 25])
-    print(test_set[2]['cchd_data_MCAR25_age'])
+    with st.expander('Примеры датасетов с разными механизмами пропусков'):
+        tab_mcar, tab_mar, tab_mnar = st.tabs(["MCAR", "MAR", "MNAR"])
+        with tab_mcar:
+            st.markdown('### MCAR 25% в переменной "slope":')
+            st.dataframe(make_mcar(cchd_data, area='slope', miss_percent=25))
+        with tab_mar:
+            st.markdown('### MAR 30% в переменной "sex". Наличие пропусков зависит от значений в переменной "oldpeak" '
+                        'по убыванию:')
+            st.dataframe(make_mar(cchd_data, area='sex', area_dependent='oldpeak', miss_parameter=30, ascending=False))
+        with tab_mnar:
+            st.markdown('### MNAR 50% в переменной "oldpeak". Наличие пропусков зависит от значений в самой '
+                        'переменной по возрастанию:')
+            st.dataframe(make_mnar(cchd_data, area='oldpeak', miss_parameter=49, ascending=True))
 
-    # 3
-    # Создание 3 тестовых датасетов
-    cchd_mar_num15_test = make_mar(cchd_data, area='thalach', area_dependent='age', miss_parameter=15)
-    # вектор истинных значений
-    num_test_mask_null = cchd_mar_num15_test['thalach'].isnull()
-    num_true = np.array(cchd_data.loc[num_test_mask_null == True, 'thalach']).reshape(-1, 1)
-    print('num_true.shape:', num_true.shape, end='\n\n')
+    # 4. Создание наборов с пропусками
+    st.markdown('## Восстановление наборов пропусков')
+    st.write('После выполнения восстановления будут отображены таблицы с метриками.')
+    st.write('Операция восстановления набора достаточно ресурсоемкая. Не стоит запускать её, если вы экономите заряд '
+             'ноутбука или у вас очень слабый процессор.')
+    st.write('Время выполнения: ~5 минут.')
 
-    cchd_mar_cat15_b_test = make_mar(cchd_data, area='exang', area_dependent='thalach', miss_parameter=15)
-    # вектор истинных значений
-    cat_b_test_mask_null = cchd_mar_cat15_b_test['exang'].isnull()
-    cat_b_true = np.array(cchd_data.loc[cat_b_test_mask_null == True, 'exang']).reshape(-1, 1)
-    print('cat_b_true.shape:', cat_b_true.shape, end='\n\n')
+    if st.button('Создать наборы (9 шт.) таблиц с пропусками и начать их восстановление'):
+        cchd_data_set_MCAR = make_set_of_datasets(cchd_data, 'MCAR', 'cchd_data', miss_parameters=[5, 15, 25])
+        cchd_data_set_MAR = make_set_of_datasets(cchd_data, 'MAR', 'cchd_data', miss_parameters=[5, 15, 25])
+        cchd_data_set_MNAR = make_set_of_datasets(cchd_data, 'MNAR', 'cchd_data', miss_parameters=[5, 15, 25])
 
-    cchd_mar_cat15_m_test = make_mar(cchd_data, area='cp', area_dependent='thalach', miss_parameter=15)
-    # вектор истинных значений
-    cat_m_test_mask_null = cchd_mar_cat15_m_test['cp'].isnull()
-    cat_m_true = np.array(cchd_data.loc[cat_m_test_mask_null == True, 'cp']).reshape(-1, 1)
-    print('cat_m_true.shape:', cat_m_true.shape)
+        # 5. Восстановление наборов с пропусками
+        cchd_MCAR_avg_avg = impute_set(cchd_data_set_MCAR, cchd_var_map, impute_average, impute_average,
+                                       cchd_data, 'MCAR', 'cchd_data', miss_parameters=[5, 15, 25],
+                                       avg_impute_mode='median')
+        cchd_MCAR_knn_linreg = impute_set(cchd_data_set_MCAR, cchd_var_map, impute_knn, impute_linreg,
+                                          cchd_data, 'MCAR', 'cchd_data', miss_parameters=[5, 15, 25])
+        cchd_MCAR_cat_cat = impute_set(cchd_data_set_MCAR, cchd_var_map, impute_catboost_cat, impute_catboost_num,
+                                       cchd_data, 'MCAR', 'cchd_data', miss_parameters=[5, 15, 25])
+        cchd_MAR_avg_avg = impute_set(cchd_data_set_MAR, cchd_var_map, impute_average, impute_average,
+                                      cchd_data, 'MAR', 'cchd_data', miss_parameters=[5, 15, 25],
+                                      avg_impute_mode='median')
+        cchd_MAR_knn_linreg = impute_set(cchd_data_set_MAR, cchd_var_map, impute_knn, impute_linreg,
+                                         cchd_data, 'MAR', 'cchd_data', miss_parameters=[5, 15, 25])
+        cchd_MAR_cat_cat = impute_set(cchd_data_set_MAR, cchd_var_map, impute_catboost_cat, impute_catboost_num,
+                                      cchd_data, 'MAR', 'cchd_data', miss_parameters=[5, 15, 25])
+        cchd_MNAR_avg_avg = impute_set(cchd_data_set_MNAR, cchd_var_map, impute_average, impute_average,
+                                       cchd_data, 'MNAR', 'cchd_data', miss_parameters=[5, 15, 25],
+                                       avg_impute_mode='median')
+        cchd_MNAR_knn_linreg = impute_set(cchd_data_set_MNAR, cchd_var_map, impute_knn, impute_linreg,
+                                          cchd_data, 'MNAR', 'cchd_data', miss_parameters=[5, 15, 25])
+        cchd_MNAR_cat_cat = impute_set(cchd_data_set_MNAR, cchd_var_map, impute_catboost_cat, impute_catboost_num,
+                                       cchd_data, 'MNAR', 'cchd_data', miss_parameters=[5, 15, 25])
 
-    # Восстанавливаем численную переменную медианой
-    df = impute_average(cchd_mar_num15_test, 'thalach', mode='median')
-    # Восстанавливаем численную переменную арифметическим средним
-    df = impute_average(cchd_mar_num15_test, 'thalach', mode='mean')
-    # Восстанавливаем бинарную категориальную переменную модой
-    df = impute_average(cchd_mar_cat15_b_test, 'exang', mode='mode')
-    # Восстанавливаем категориальную переменную модой
-    df = impute_average(cchd_mar_cat15_m_test, 'cp', mode='mode')
+        # 6. Создание матриц метрик
+        st.markdown('## Расчет метрик')
+        num_methods_map = {0: 'Median Imputation', 1: 'Linear Regression', 2: 'Boosted Decision Tree'}
+        cat_methods_map = {0: 'Mode Imputation', 1: 'K-Nearest Neighbours', 2: 'Boosted Decision Tree'}
 
-    # ML shit
-    df = impute_linreg(cchd_mar_num15_test, 'thalach')
+        # Численные метрики (RMSE)
+        metrics_MCAR5_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 5, num_methods_map, cchd_var_map,
+                                                    False,
+                                                    cchd_MCAR_avg_avg[0], cchd_MCAR_knn_linreg[0], cchd_MCAR_cat_cat[0])
+        metrics_MCAR15_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 15, num_methods_map, cchd_var_map,
+                                                     False,
+                                                     cchd_MCAR_avg_avg[1], cchd_MCAR_knn_linreg[1],
+                                                     cchd_MCAR_cat_cat[1])
+        metrics_MCAR25_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 25, num_methods_map, cchd_var_map,
+                                                     False,
+                                                     cchd_MCAR_avg_avg[2], cchd_MCAR_knn_linreg[2],
+                                                     cchd_MCAR_cat_cat[2])
+        metrics_MAR5_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MAR', 5, num_methods_map, cchd_var_map,
+                                                   False,
+                                                   cchd_MAR_avg_avg[0], cchd_MAR_knn_linreg[0], cchd_MAR_cat_cat[0])
+        metrics_MAR15_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MAR', 15, num_methods_map, cchd_var_map,
+                                                    False,
+                                                    cchd_MAR_avg_avg[1], cchd_MAR_knn_linreg[1], cchd_MAR_cat_cat[1])
+        metrics_MAR25_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MAR', 25, num_methods_map, cchd_var_map,
+                                                    False,
+                                                    cchd_MAR_avg_avg[2], cchd_MAR_knn_linreg[2], cchd_MAR_cat_cat[2])
+        metrics_MNAR5_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MNAR', 5, num_methods_map, cchd_var_map,
+                                                    False,
+                                                    cchd_MNAR_avg_avg[0], cchd_MNAR_knn_linreg[0], cchd_MNAR_cat_cat[0])
+        metrics_MNAR15_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MNAR', 15, num_methods_map, cchd_var_map,
+                                                     False,
+                                                     cchd_MNAR_avg_avg[1], cchd_MNAR_knn_linreg[1],
+                                                     cchd_MNAR_cat_cat[1])
+        metrics_MNAR25_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MNAR', 25, num_methods_map, cchd_var_map,
+                                                     False,
+                                                     cchd_MNAR_avg_avg[2], cchd_MNAR_knn_linreg[2],
+                                                     cchd_MNAR_cat_cat[2])
 
-    df = impute_knn(cchd_mar_cat15_b_test, 'exang')
-    df = impute_knn(cchd_mar_cat15_m_test, 'cp')
+        # Категориальные метрики (F1)
+        metrics_MCAR5_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 5, cat_methods_map, cchd_var_map,
+                                                    False,
+                                                    cchd_MCAR_avg_avg[0], cchd_MCAR_knn_linreg[0], cchd_MCAR_cat_cat[0])
+        metrics_MCAR15_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 15, cat_methods_map, cchd_var_map,
+                                                     False,
+                                                     cchd_MCAR_avg_avg[1], cchd_MCAR_knn_linreg[1],
+                                                     cchd_MCAR_cat_cat[1])
+        metrics_MCAR25_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 25, cat_methods_map, cchd_var_map,
+                                                     False,
+                                                     cchd_MCAR_avg_avg[2], cchd_MCAR_knn_linreg[2],
+                                                     cchd_MCAR_cat_cat[2])
+        metrics_MAR5_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MAR', 5, cat_methods_map, cchd_var_map,
+                                                   False,
+                                                   cchd_MAR_avg_avg[0], cchd_MAR_knn_linreg[0], cchd_MAR_cat_cat[0])
+        metrics_MAR15_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MAR', 15, cat_methods_map, cchd_var_map,
+                                                    False,
+                                                    cchd_MAR_avg_avg[1], cchd_MAR_knn_linreg[1], cchd_MAR_cat_cat[1])
+        metrics_MAR25_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MAR', 25, cat_methods_map, cchd_var_map,
+                                                    False,
+                                                    cchd_MAR_avg_avg[2], cchd_MAR_knn_linreg[2], cchd_MAR_cat_cat[2])
+        metrics_MNAR5_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MNAR', 5, cat_methods_map, cchd_var_map,
+                                                    False,
+                                                    cchd_MNAR_avg_avg[0], cchd_MNAR_knn_linreg[0], cchd_MNAR_cat_cat[0])
+        metrics_MNAR15_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MNAR', 15, cat_methods_map, cchd_var_map,
+                                                     False,
+                                                     cchd_MNAR_avg_avg[1], cchd_MNAR_knn_linreg[1],
+                                                     cchd_MNAR_cat_cat[1])
+        metrics_MNAR25_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MNAR', 25, cat_methods_map, cchd_var_map,
+                                                     False,
+                                                     cchd_MNAR_avg_avg[2], cchd_MNAR_knn_linreg[2],
+                                                     cchd_MNAR_cat_cat[2])
 
-    df = impute_catboost_cat(cchd_mar_cat15_b_test, 'exang', cchd_var_map)
-    df = impute_catboost_cat(cchd_mar_cat15_m_test, 'cp', cchd_var_map)
+        # Вывод матриц метрик, усредненных по разным количествам пропусков
+        with st.expander('Матрицы метрик'):
+            st.markdown('### MCAR категориальные метрики')
+            fig, ax = plt.subplots()
+            sns.heatmap((metrics_MCAR5_cat + metrics_MCAR15_cat + metrics_MCAR25_cat) / 3, ax=ax, annot=True)
+            st.write(fig)
 
-    df = impute_catboost_num(cchd_mar_num15_test, 'thalach')
+            st.markdown('### MAR категориальные метрики')
+            fig, ax = plt.subplots()
+            sns.heatmap((metrics_MAR5_cat + metrics_MAR15_cat + metrics_MAR25_cat) / 3, ax=ax, annot=True)
+            st.write(fig)
 
-    # 4
-    cchd_data_set_MCAR = make_set_of_datasets(cchd_data, 'MCAR', 'cchd_data', miss_parameters=[5, 15, 25])
-    cchd_data_set_MAR = make_set_of_datasets(cchd_data, 'MAR', 'cchd_data', miss_parameters=[5, 15, 25])
-    cchd_data_set_MNAR = make_set_of_datasets(cchd_data, 'MNAR', 'cchd_data', miss_parameters=[5, 15, 25])
+            st.markdown('### MNAR категориальные метрики')
+            fig, ax = plt.subplots()
+            sns.heatmap((metrics_MNAR5_cat + metrics_MNAR15_cat + metrics_MNAR25_cat) / 3, ax=ax, annot=True)
+            st.write(fig)
 
-    # 5
-    dfs = impute_set(cchd_data_set_MCAR, cchd_var_map, impute_average, impute_average,
-                     cchd_data, 'MCAR', 'cchd_data', miss_parameters=[5, 15, 25], avg_impute_mode='mode')
+            st.markdown('### MCAR численные метрики')
+            fig, ax = plt.subplots()
+            sns.heatmap((metrics_MCAR5_num + metrics_MCAR15_num + metrics_MCAR25_num) / 3, ax=ax, annot=True)
+            st.write(fig)
 
-    cchd_MCAR_avg_avg = impute_set(cchd_data_set_MCAR, cchd_var_map, impute_average, impute_average,
-                                   cchd_data, 'MCAR', 'cchd_data', miss_parameters=[5, 15, 25],
-                                   avg_impute_mode='median')
-    cchd_MCAR_knn_linreg = impute_set(cchd_data_set_MCAR, cchd_var_map, impute_knn, impute_linreg,
-                                      cchd_data, 'MCAR', 'cchd_data', miss_parameters=[5, 15, 25])
-    cchd_MCAR_cat_cat = impute_set(cchd_data_set_MCAR, cchd_var_map, impute_catboost_cat, impute_catboost_num,
-                                   cchd_data, 'MCAR', 'cchd_data', miss_parameters=[5, 15, 25])
-    cchd_MAR_avg_avg = impute_set(cchd_data_set_MAR, cchd_var_map, impute_average, impute_average,
-                                  cchd_data, 'MAR', 'cchd_data', miss_parameters=[5, 15, 25], avg_impute_mode='median')
-    cchd_MAR_knn_linreg = impute_set(cchd_data_set_MAR, cchd_var_map, impute_knn, impute_linreg,
-                                     cchd_data, 'MAR', 'cchd_data', miss_parameters=[5, 15, 25])
-    cchd_MAR_cat_cat = impute_set(cchd_data_set_MAR, cchd_var_map, impute_catboost_cat, impute_catboost_num,
-                                  cchd_data, 'MAR', 'cchd_data', miss_parameters=[5, 15, 25])
-    cchd_MNAR_avg_avg = impute_set(cchd_data_set_MNAR, cchd_var_map, impute_average, impute_average,
-                                   cchd_data, 'MNAR', 'cchd_data', miss_parameters=[5, 15, 25],
-                                   avg_impute_mode='median')
-    cchd_MNAR_knn_linreg = impute_set(cchd_data_set_MNAR, cchd_var_map, impute_knn, impute_linreg,
-                                      cchd_data, 'MNAR', 'cchd_data', miss_parameters=[5, 15, 25])
-    cchd_MNAR_cat_cat = impute_set(cchd_data_set_MNAR, cchd_var_map, impute_catboost_cat, impute_catboost_num,
-                                   cchd_data, 'MNAR', 'cchd_data', miss_parameters=[5, 15, 25])
+            st.markdown('### MAR численные метрики')
+            fig, ax = plt.subplots()
+            sns.heatmap((metrics_MAR5_num + metrics_MAR15_num + metrics_MAR25_num) / 3, ax=ax, annot=True)
+            st.write(fig)
 
-    # 6
-    num_methods_map = {0: 'Median Imputation', 1: 'Linear Regression', 2: 'Boosted Decision Tree'}
-    metrics_MCAR5_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 5, num_methods_map, cchd_var_map, False,
-                                                cchd_MCAR_avg_avg[0], cchd_MCAR_knn_linreg[0], cchd_MCAR_cat_cat[0])
-    print(metrics_MCAR5_num)
-
-    cat_methods_map = {0: 'Mode Imputation', 1: 'K-Nearest Neighbours', 2: 'Boosted Decision Tree'}
-    metrics_MCAR5_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 5, cat_methods_map, cchd_var_map, False,
-                                                cchd_MCAR_avg_avg[0], cchd_MCAR_knn_linreg[0], cchd_MCAR_cat_cat[0])
-    print(metrics_MCAR5_cat)
-
-    # 6.1.3
-    # Числ.
-    metrics_MCAR5_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 5, num_methods_map, cchd_var_map, False,
-                                                cchd_MCAR_avg_avg[0], cchd_MCAR_knn_linreg[0], cchd_MCAR_cat_cat[0])
-    metrics_MCAR15_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 15, num_methods_map, cchd_var_map,
-                                                 False,
-                                                 cchd_MCAR_avg_avg[1], cchd_MCAR_knn_linreg[1], cchd_MCAR_cat_cat[1])
-    metrics_MCAR25_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 25, num_methods_map, cchd_var_map,
-                                                 False,
-                                                 cchd_MCAR_avg_avg[2], cchd_MCAR_knn_linreg[2], cchd_MCAR_cat_cat[2])
-    metrics_MAR5_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MAR', 5, num_methods_map, cchd_var_map, False,
-                                               cchd_MAR_avg_avg[0], cchd_MAR_knn_linreg[0], cchd_MAR_cat_cat[0])
-    metrics_MAR15_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MAR', 15, num_methods_map, cchd_var_map, False,
-                                                cchd_MAR_avg_avg[1], cchd_MAR_knn_linreg[1], cchd_MAR_cat_cat[1])
-    metrics_MAR25_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MAR', 25, num_methods_map, cchd_var_map, False,
-                                                cchd_MAR_avg_avg[2], cchd_MAR_knn_linreg[2], cchd_MAR_cat_cat[2])
-    metrics_MNAR5_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MNAR', 5, num_methods_map, cchd_var_map, False,
-                                                cchd_MNAR_avg_avg[0], cchd_MNAR_knn_linreg[0], cchd_MNAR_cat_cat[0])
-    metrics_MNAR15_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MNAR', 15, num_methods_map, cchd_var_map,
-                                                 False,
-                                                 cchd_MNAR_avg_avg[1], cchd_MNAR_knn_linreg[1], cchd_MNAR_cat_cat[1])
-    metrics_MNAR25_num = make_num_metrics_matrix(cchd_data, 'cchd_data', 'MNAR', 25, num_methods_map, cchd_var_map,
-                                                 False,
-                                                 cchd_MNAR_avg_avg[2], cchd_MNAR_knn_linreg[2], cchd_MNAR_cat_cat[2])
-
-    # Кат.
-    metrics_MCAR5_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 5, cat_methods_map, cchd_var_map, False,
-                                                cchd_MCAR_avg_avg[0], cchd_MCAR_knn_linreg[0], cchd_MCAR_cat_cat[0])
-    metrics_MCAR15_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 15, cat_methods_map, cchd_var_map,
-                                                 False,
-                                                 cchd_MCAR_avg_avg[1], cchd_MCAR_knn_linreg[1], cchd_MCAR_cat_cat[1])
-    metrics_MCAR25_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MCAR', 25, cat_methods_map, cchd_var_map,
-                                                 False,
-                                                 cchd_MCAR_avg_avg[2], cchd_MCAR_knn_linreg[2], cchd_MCAR_cat_cat[2])
-    metrics_MAR5_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MAR', 5, cat_methods_map, cchd_var_map, False,
-                                               cchd_MAR_avg_avg[0], cchd_MAR_knn_linreg[0], cchd_MAR_cat_cat[0])
-    metrics_MAR15_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MAR', 15, cat_methods_map, cchd_var_map, False,
-                                                cchd_MAR_avg_avg[1], cchd_MAR_knn_linreg[1], cchd_MAR_cat_cat[1])
-    metrics_MAR25_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MAR', 25, cat_methods_map, cchd_var_map, False,
-                                                cchd_MAR_avg_avg[2], cchd_MAR_knn_linreg[2], cchd_MAR_cat_cat[2])
-    metrics_MNAR5_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MNAR', 5, cat_methods_map, cchd_var_map, False,
-                                                cchd_MNAR_avg_avg[0], cchd_MNAR_knn_linreg[0], cchd_MNAR_cat_cat[0])
-    metrics_MNAR15_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MNAR', 15, cat_methods_map, cchd_var_map,
-                                                 False,
-                                                 cchd_MNAR_avg_avg[1], cchd_MNAR_knn_linreg[1], cchd_MNAR_cat_cat[1])
-    metrics_MNAR25_cat = make_cat_metrics_matrix(cchd_data, 'cchd_data', 'MNAR', 25, cat_methods_map, cchd_var_map,
-                                                 False,
-                                                 cchd_MNAR_avg_avg[2], cchd_MNAR_knn_linreg[2], cchd_MNAR_cat_cat[2])
-
-    # 7
-    print('MCAR_cat:', (metrics_MCAR5_cat + metrics_MCAR15_cat + metrics_MCAR25_cat) / 3, sep='\n')
-    print('MAR_cat:', (metrics_MAR5_cat + metrics_MAR15_cat + metrics_MAR25_cat) / 3, sep='\n')
-    print('MNAR_cat:', (metrics_MNAR5_cat + metrics_MNAR15_cat + metrics_MNAR25_cat) / 3, sep='\n')
-
-    print('MCAR_num:', (metrics_MCAR5_num + metrics_MCAR15_num + metrics_MCAR25_num) / 3, sep='\n')
-    print('MAR_num:', (metrics_MAR5_num + metrics_MAR15_num + metrics_MAR25_num) / 3, sep='\n')
-    print('MNAR_num:', (metrics_MNAR5_num + metrics_MNAR15_num + metrics_MNAR25_num) / 3, sep='\n')
+            st.markdown('### MNAR численные метрики')
+            fig, ax = plt.subplots()
+            sns.heatmap((metrics_MNAR5_num + metrics_MNAR15_num + metrics_MNAR25_num) / 3, ax=ax, annot=True)
+            st.write(fig)
 
 
 if __name__ == '__main__':

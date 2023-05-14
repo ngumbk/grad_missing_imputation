@@ -1,8 +1,9 @@
 from imputation_functions import *
+import streamlit as st
 
 
 def impute_set(df_sets, var_map, cat_impute_function, num_impute_function, dataset, mechanism, name,
-               miss_parameters=[5, 15, 25], avg_impute_mode='median'):
+               miss_parameters=None, avg_impute_mode='median'):
     '''
     df_sets - наборы датасетов в виде массива словарей 3x14, где каждое значение словаря - датасет с пропусками в соответствие с кодировкой ключа
     var_map - словарь с пользовательским определением типа каждой переменной
@@ -16,8 +17,21 @@ def impute_set(df_sets, var_map, cat_impute_function, num_impute_function, datas
     '''
     # 4 параметра нужны по сути для составления ключа
 
+    if miss_parameters is None:
+        miss_parameters = [5, 15, 25]
     imputed_df_sets = []  # список наборов, который будет возвращен
     c = len(df_sets[0])  # количество переменных в каждом датасете
+
+    output_map = {impute_average: 'Восстановление средним',
+                  impute_linreg: 'Линейная регрессия',
+                  impute_knn: 'k-ближайших соседей',
+                  impute_catboost_cat: 'Решающее дерево (кат.)',
+                  impute_catboost_num: 'Решающее дерево (числ.)'}
+    st.write(f'Восстановление набора с пропусками {mechanism} в объеме {miss_parameters}')
+    st.write(f'Метод восстановления категориальных переменных: {output_map[cat_impute_function]},')
+    st.write(f'Метод восстановления численных переменных: {output_map[num_impute_function]}')
+
+    progress_bar = st.progress(0)
 
     for i in range(3):
         df_set = df_sets[i]  # Берем один набор (словарь, содержащий 14 df) из 3
@@ -45,6 +59,8 @@ def impute_set(df_sets, var_map, cat_impute_function, num_impute_function, datas
             elif var_map[dataset.columns[j]] == 'num':
                 imputed_df_set[keys_set[j]] = num_impute_function(df_set[keys_set[j]], dataset.columns[j],
                                                                   verbose=False)
+            progress_bar.progress(int(100 * (j + i * c) / c / 3))
         imputed_df_sets.append(imputed_df_set)
+    progress_bar.progress(100)
 
     return imputed_df_sets
