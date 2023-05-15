@@ -225,6 +225,95 @@ def main():
             sns.heatmap((metrics_MNAR5_num + metrics_MNAR15_num + metrics_MNAR25_num) / 3, ax=ax, annot=True)
             st.write(fig)
 
+        with st.expander('Графики метрик'):
+            st.markdown('### Численные переменные')
+            # MCAR num
+            list_of_MCAR_num = list(zip(metrics_MCAR5_num.sum(axis=1) / 5, metrics_MCAR15_num.sum(axis=1) / 5,
+                                        metrics_MCAR25_num.sum(axis=1) / 5))
+            MCAR_num_stat = pd.DataFrame(np.array(list_of_MCAR_num).T, columns=[num_methods_map[i] for i in range(3)],
+                                         index=[5, 15, 25])
+            fig, ax = plt.subplots()
+            MCAR_num_graph = sns.lineplot(data=MCAR_num_stat, ax=ax)
+            MCAR_num_graph.set_xticks(range(5, 26, 10))
+            MCAR_num_graph.set_yticks(range(3, 20))
+            plt.title("RMSE для MCAR-пропусков")
+            plt.xlabel("Доля пропусков")
+            plt.ylabel("RMSE-метрика")
+
+            st.write(fig)
+
+            # MAR num
+            list_of_MAR_num = list(zip(metrics_MAR5_num.sum(axis=1) / 5, metrics_MAR15_num.sum(axis=1) / 5,
+                                       metrics_MAR25_num.sum(axis=1) / 5))
+            MAR_num_stat = pd.DataFrame(np.array(list_of_MAR_num).T, columns=[num_methods_map[i] for i in range(3)],
+                                        index=[5, 15, 25])
+            fig, ax = plt.subplots()
+            MAR_num_graph = sns.lineplot(data=MAR_num_stat, ax=ax)
+            MAR_num_graph.set_xticks(range(5, 26, 10))
+            MAR_num_graph.set_yticks(range(3, 20))
+            plt.title("RMSE для MAR-пропусков")
+            plt.xlabel("Доля пропусков")
+            plt.ylabel("RMSE-метрика")
+            st.write(fig)
+
+            # MNAR num
+            list_of_MNAR_num = list(zip(metrics_MNAR5_num.sum(axis=1) / 5, metrics_MNAR15_num.sum(axis=1) / 5,
+                                        metrics_MNAR25_num.sum(axis=1) / 5))
+            MNAR_num_stat = pd.DataFrame(np.array(list_of_MNAR_num).T, columns=[num_methods_map[i] for i in range(3)],
+                                         index=[5, 15, 25])
+            fig, ax = plt.subplots()
+            MNAR_num_graph = sns.lineplot(data=MNAR_num_stat, ax=ax)
+            MNAR_num_graph.set_xticks(range(5, 26, 10))
+            MNAR_num_graph.set_yticks(range(3, 20))
+            plt.title("RMSE для MNAR-пропусков")
+            plt.xlabel("Доля пропусков")
+            plt.ylabel("RMSE-метрика")
+            st.write(fig)
+
+            st.markdown('### Категориальные переменные')
+
+            # MCAR cat
+            list_of_MCAR_cat = list(zip(metrics_MCAR5_cat.sum(axis=1) / 8, metrics_MCAR15_cat.sum(axis=1) / 8,
+                                        metrics_MCAR25_cat.sum(axis=1) / 8))
+            MCAR_cat_stat = pd.DataFrame(np.array(list_of_MCAR_cat).T, columns=[cat_methods_map[i] for i in range(3)],
+                                         index=[5, 15, 25])
+            fig, ax = plt.subplots()
+            MCAR_cat_graph = sns.lineplot(data=MCAR_cat_stat, ax=ax)
+            MCAR_cat_graph.set_xticks(range(5, 26, 10))
+            MCAR_cat_graph.set_yticks([0.025 * i for i in range(31, 40)])  # 0.775 - 1
+            plt.title("F1 для MCAR-пропусков")
+            plt.xlabel("Доля пропусков")
+            plt.ylabel("F1-метрика")
+            st.write(fig)
+
+            # MAR cat
+            list_of_MAR_cat = list(zip(metrics_MAR5_cat.sum(axis=1) / 8, metrics_MAR15_cat.sum(axis=1) / 8,
+                                       metrics_MAR25_cat.sum(axis=1) / 8))
+            MAR_cat_stat = pd.DataFrame(np.array(list_of_MAR_cat).T, columns=[cat_methods_map[i] for i in range(3)],
+                                        index=[5, 15, 25])
+            fig, ax = plt.subplots()
+            MAR_cat_graph = sns.lineplot(data=MAR_cat_stat, ax=ax)
+            MAR_cat_graph.set_xticks(range(5, 26, 10))
+            MAR_cat_graph.set_yticks([0.025 * i for i in range(31, 40)])  # 0.775 - 1
+            plt.title("F1 для MAR-пропусков")
+            plt.xlabel("Доля пропусков")
+            plt.ylabel("F1-метрика")
+            st.write(fig)
+
+            # MNAR cat
+            list_of_MNAR_cat = list(zip(metrics_MNAR5_cat.sum(axis=1) / 8, metrics_MNAR15_cat.sum(axis=1) / 8,
+                                        metrics_MNAR25_cat.sum(axis=1) / 8))
+            MNAR_cat_stat = pd.DataFrame(np.array(list_of_MNAR_cat).T, columns=[cat_methods_map[i] for i in range(3)],
+                                         index=[5, 15, 25])
+            fig, ax = plt.subplots()
+            MNAR_cat_graph = sns.lineplot(data=MNAR_cat_stat, ax=ax)
+            MNAR_cat_graph.set_xticks(range(5, 26, 10))
+            MNAR_cat_graph.set_yticks([0.025 * i for i in range(31, 40)])  # 0.775 - 1
+            plt.title("F1 для MNAR-пропусков")
+            plt.xlabel("Доля пропусков")
+            plt.ylabel("F1-метрика")
+            st.write(fig)
+
 
 if __name__ == '__main__':
     main()
